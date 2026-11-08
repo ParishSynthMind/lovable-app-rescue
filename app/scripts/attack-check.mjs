@@ -23,45 +23,97 @@ const { data: mine } = await maria.from("requests").select("id, description").li
 const mariaId = (await maria.auth.getUser()).data.user.id;
 
 const attacks = [
-  ["Client changes the email staff see on the dashboard", async () => {
-    const { data, error } = await maria.from("profiles").update({ email: "ceo@bigclient.example" }).eq("id", mariaId).select();
-    if (!error && data?.length) await maria.from("profiles").update({ email: "maria@example.com" }).eq("id", mariaId);
-    return !error && data?.length > 0;
-  }],
-  ["Client backdates a request by a year", async () => {
-    const { data, error } = await maria.from("requests").insert({ client_id: mariaId, title: "Backdated", description: "x", category: "bug",
-      created_at: new Date(Date.now() - 365 * 864e5).toISOString() }).select("id");
-    return !error && data?.length > 0;
-  }],
-  ["Signed-out visitor asks whether a user id is an admin", async () => {
-    const { data, error } = await anon.rpc("has_role", { _user_id: STAFF_ID, _role: "admin" });
-    return !error && data === true;
-  }],
-  ["Signed-out visitor lists requests", async () => {
-    const { data, error } = await anon.from("requests").select("id");
-    return !error && data.length > 0;
-  }],
-  ["Client reads another client's requests", async () => {
-    const { data } = await maria.from("requests").select("id").neq("client_id", mariaId);
-    return (data?.length ?? 0) > 0;
-  }],
-  ["Client reads the internal staff notes", async () => {
-    const { data } = await maria.from("request_notes").select("id");
-    return (data?.length ?? 0) > 0;
-  }],
-  ["Client makes herself admin", async () => {
-    const { error } = await maria.from("user_roles").insert({ user_id: mariaId, role: "admin" });
-    return !error;
-  }],
-  ["Client marks her own request done", async () => {
-    const { data } = await maria.from("requests").update({ status: "done" }).eq("id", mine[0].id).select();
-    return (data?.length ?? 0) > 0;
-  }],
-  ["Staff rewrite what the client wrote", async () => {
-    const { data, error } = await staff.from("requests").update({ description: "rewritten by staff" }).eq("id", mine[0].id).select();
-    if (!error && data?.length) await staff.from("requests").update({ description: mine[0].description }).eq("id", mine[0].id);
-    return !error && data?.length > 0;
-  }],
+  [
+    "Client changes the email staff see on the dashboard",
+    async () => {
+      const { data, error } = await maria
+        .from("profiles")
+        .update({ email: "ceo@bigclient.example" })
+        .eq("id", mariaId)
+        .select();
+      if (!error && data?.length)
+        await maria.from("profiles").update({ email: "maria@example.com" }).eq("id", mariaId);
+      return !error && data?.length > 0;
+    },
+  ],
+  [
+    "Client backdates a request by a year",
+    async () => {
+      const { data, error } = await maria
+        .from("requests")
+        .insert({
+          client_id: mariaId,
+          title: "Backdated",
+          description: "x",
+          category: "bug",
+          created_at: new Date(Date.now() - 365 * 864e5).toISOString(),
+        })
+        .select("id");
+      return !error && data?.length > 0;
+    },
+  ],
+  [
+    "Signed-out visitor asks whether a user id is an admin",
+    async () => {
+      const { data, error } = await anon.rpc("has_role", { _user_id: STAFF_ID, _role: "admin" });
+      return !error && data === true;
+    },
+  ],
+  [
+    "Signed-out visitor lists requests",
+    async () => {
+      const { data, error } = await anon.from("requests").select("id");
+      return !error && data.length > 0;
+    },
+  ],
+  [
+    "Client reads another client's requests",
+    async () => {
+      const { data } = await maria.from("requests").select("id").neq("client_id", mariaId);
+      return (data?.length ?? 0) > 0;
+    },
+  ],
+  [
+    "Client reads the internal staff notes",
+    async () => {
+      const { data } = await maria.from("request_notes").select("id");
+      return (data?.length ?? 0) > 0;
+    },
+  ],
+  [
+    "Client makes herself admin",
+    async () => {
+      const { error } = await maria.from("user_roles").insert({ user_id: mariaId, role: "admin" });
+      return !error;
+    },
+  ],
+  [
+    "Client marks her own request done",
+    async () => {
+      const { data } = await maria
+        .from("requests")
+        .update({ status: "done" })
+        .eq("id", mine[0].id)
+        .select();
+      return (data?.length ?? 0) > 0;
+    },
+  ],
+  [
+    "Staff rewrite what the client wrote",
+    async () => {
+      const { data, error } = await staff
+        .from("requests")
+        .update({ description: "rewritten by staff" })
+        .eq("id", mine[0].id)
+        .select();
+      if (!error && data?.length)
+        await staff
+          .from("requests")
+          .update({ description: mine[0].description })
+          .eq("id", mine[0].id);
+      return !error && data?.length > 0;
+    },
+  ],
 ];
 
 let allowed = 0;

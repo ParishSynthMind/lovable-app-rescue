@@ -13,9 +13,15 @@ export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
       { title: "Sign in — Studio Desk" },
-      { name: "description", content: "Sign in or create an account to submit requests to the studio." },
+      {
+        name: "description",
+        content: "Sign in or create an account to submit requests to the studio.",
+      },
       { property: "og:title", content: "Sign in — Studio Desk" },
-      { property: "og:description", content: "Sign in or create an account to submit requests to the studio." },
+      {
+        property: "og:description",
+        content: "Sign in or create an account to submit requests to the studio.",
+      },
     ],
   }),
   component: AuthPage,
@@ -39,7 +45,10 @@ function AuthPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = schema.safeParse({ email, password, fullName });
-    if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "Invalid input"); return; }
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
     setBusy(true);
     try {
       if (mode === "signup") {
@@ -100,7 +109,14 @@ function AuthPage() {
                 We sent a confirmation link to <strong>{email}</strong>. Click it to activate your
                 account, then sign in.
               </p>
-              <Button variant="outline" className="mt-6 w-full" onClick={() => { setSent(false); setMode("signin"); }}>
+              <Button
+                variant="outline"
+                className="mt-6 w-full"
+                onClick={() => {
+                  setSent(false);
+                  setMode("signin");
+                }}
+              >
                 Back to sign in
               </Button>
             </div>
@@ -110,18 +126,32 @@ function AuthPage() {
                 {mode === "signin" ? "Welcome back" : "Create your account"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {mode === "signin" ? "Sign in to your client portal." : "Start sending requests in a minute."}
+                {mode === "signin"
+                  ? "Sign in to your client portal."
+                  : "Start sending requests in a minute."}
               </p>
               <form onSubmit={submit} className="mt-8 space-y-4">
                 {mode === "signup" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="name">Full name</Label>
-                    <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={100} />
+                    <Input
+                      id="name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      maxLength={100}
+                    />
                   </div>
                 )}
                 <div className="space-y-1.5">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="password">Password</Label>

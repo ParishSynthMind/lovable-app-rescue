@@ -10,7 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   CATEGORY_LABEL,
   STATUS_LABEL,
@@ -99,20 +105,37 @@ function RequestsPage() {
         >
           <div className="space-y-1.5">
             <Label htmlFor="title">Title</Label>
-            <Input id="title" value={title} maxLength={150} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Contact form not sending" />
+            <Input
+              id="title"
+              value={title}
+              maxLength={150}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Contact form not sending"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="desc">Description</Label>
-            <Textarea id="desc" rows={5} value={description} maxLength={5000} onChange={(e) => setDescription(e.target.value)} placeholder="What happened, where, and what you expected." />
+            <Textarea
+              id="desc"
+              rows={5}
+              value={description}
+              maxLength={5000}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What happened, where, and what you expected."
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Category</Label>
               <Select value={category} onValueChange={(v) => setCategory(v as RequestCategory)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.entries(CATEGORY_LABEL).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                    <SelectItem key={k} value={k}>
+                      {v}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -120,10 +143,14 @@ function RequestsPage() {
             <div className="space-y-1.5">
               <Label>Urgency</Label>
               <Select value={urgency} onValueChange={(v) => setUrgency(v as RequestUrgency)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.entries(URGENCY_LABEL).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                    <SelectItem key={k} value={k}>
+                      {v}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -149,7 +176,9 @@ function RequestsPage() {
             <div className="rounded-xl border border-dashed bg-card p-12 text-center">
               <Inbox className="mx-auto h-8 w-8 text-muted-foreground" />
               <p className="mt-3 font-medium">No requests yet</p>
-              <p className="text-sm text-muted-foreground">Your submitted requests will show up here.</p>
+              <p className="text-sm text-muted-foreground">
+                Your submitted requests will show up here.
+              </p>
             </div>
           ) : (
             requests.map((r) => (
@@ -158,10 +187,14 @@ function RequestsPage() {
                   <h3 className="font-semibold">{r.title}</h3>
                   <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
                 </div>
-                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{r.description}</p>
+                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {r.description}
+                </p>
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <Badge variant="muted">{CATEGORY_LABEL[r.category]}</Badge>
-                  <Badge variant={r.urgency === "high" ? "urgent" : "muted"}>{URGENCY_LABEL[r.urgency]} urgency</Badge>
+                  <Badge variant={r.urgency === "high" ? "urgent" : "muted"}>
+                    {URGENCY_LABEL[r.urgency]} urgency
+                  </Badge>
                   <span className="ml-auto">{formatDate(r.created_at)}</span>
                 </div>
               </article>

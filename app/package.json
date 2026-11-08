@@ -11,7 +11,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p .",
+    "test:db": "supabase test db",
+    "test:functions": "deno test supabase/functions/",
+    "audit": "node ../tools/audit/lovable-audit.mjs ."
   },
   "overrides": {
     "rolldown": "1.2.1"

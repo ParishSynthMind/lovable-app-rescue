@@ -7,18 +7,38 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Studio Desk — Client Request Portal" },
-      { name: "description", content: "Submit bugs, change requests and questions to your web design studio and track their status." },
+      {
+        name: "description",
+        content:
+          "Submit bugs, change requests and questions to your web design studio and track their status.",
+      },
       { property: "og:title", content: "Studio Desk — Client Request Portal" },
-      { property: "og:description", content: "Submit bugs, change requests and questions to your web design studio and track their status." },
+      {
+        property: "og:description",
+        content:
+          "Submit bugs, change requests and questions to your web design studio and track their status.",
+      },
     ],
   }),
   component: Index,
 });
 
 const items = [
-  { icon: Bug, title: "Report a bug", text: "Something broken on your site? Tell us and we'll fix it." },
-  { icon: PencilRuler, title: "Request a change", text: "New copy, a fresh section, a tweak to the layout." },
-  { icon: MessageCircleQuestion, title: "Ask a question", text: "Anything about your site, hosting or next steps." },
+  {
+    icon: Bug,
+    title: "Report a bug",
+    text: "Something broken on your site? Tell us and we'll fix it.",
+  },
+  {
+    icon: PencilRuler,
+    title: "Request a change",
+    text: "New copy, a fresh section, a tweak to the layout.",
+  },
+  {
+    icon: MessageCircleQuestion,
+    title: "Ask a question",
+    text: "Anything about your site, hosting or next steps.",
+  },
 ];
 
 function Index() {

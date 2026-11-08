@@ -2,12 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Lock, ShieldAlert, Trash2 } from "lucide-react";
+import { Lock, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   CATEGORY_LABEL,
@@ -20,6 +26,15 @@ import {
   type RequestStatus,
 } from "@/lib/requests";
 import { cn } from "@/lib/utils";
+import { TriagePanel } from "@/components/TriagePanel";
+import {
+  PRIORITY_LABEL,
+  PRIORITY_VARIANT,
+  byPriority,
+  useRunTriage,
+  useTriage,
+  type TriageRow,
+} from "@/lib/triage";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   head: () => ({
@@ -34,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/admin")({
 });
 
 type AdminRequest = RequestRow & { profiles: { email: string; full_name: string | null } | null };
+const NO_TRIAGE = new Map<string, TriageRow>();
 const FILTERS: Array<RequestStatus | "all"> = ["all", "new", "in_progress", "done"];
 
 function AdminPage() {
@@ -57,6 +73,9 @@ function Dashboard() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<RequestStatus | "all">("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sortByAi, setSortByAi] = useState(false);
+  const { data: triage = NO_TRIAGE } = useTriage();
+  const runTriage = useRunTriage();
 
   const { data: all = [], isLoading } = useQuery({
     queryKey: ["admin-requests"],
@@ -88,13 +107,43 @@ function Dashboard() {
     in_progress: all.filter((r) => r.status === "in_progress").length,
     done: all.filter((r) => r.status === "done").length,
   };
-  const rows = filter === "all" ? all : all.filter((r) => r.status === filter);
+  const filtered = filter === "all" ? all : all.filter((r) => r.status === filter);
+  const rows = sortByAi
+    ? filtered.map((r) => ({ ...r, triage: triage.get(r.id) })).sort(byPriority)
+    : filtered;
+  const untriaged = all.filter((r) => r.status !== "done" && !triage.has(r.id)).length;
   const open = all.find((r) => r.id === openId) ?? null;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold">Agency dashboard</h1>
       <p className="mt-1 text-sm text-muted-foreground">Every request from every client.</p>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={runTriage.isPending || untriaged === 0}
+          onClick={() =>
+            runTriage.mutate(
+              { all_untriaged: true },
+              {
+                onSuccess: (n) => toast.success(`Claude triaged ${n} request${n === 1 ? "" : "s"}`),
+                onError: (e) => toast.error(e.message),
+              },
+            )
+          }
+        >
+          <Sparkles className="mr-1 h-3.5 w-3.5" />
+          {runTriage.isPending ? "Asking Claude…" : `Triage new requests (${untriaged})`}
+        </Button>
+        <Button
+          size="sm"
+          variant={sortByAi ? "default" : "ghost"}
+          onClick={() => setSortByAi((v) => !v)}
+        >
+          {sortByAi ? "Sorted by AI priority" : "Sort by AI priority"}
+        </Button>
+      </div>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {FILTERS.map((f) => (
@@ -121,22 +170,33 @@ function Dashboard() {
               <th className="px-4 py-3 font-medium">Request</th>
               <th className="hidden px-4 py-3 font-medium md:table-cell">Client</th>
               <th className="hidden px-4 py-3 font-medium sm:table-cell">Urgency</th>
+              <th className="px-4 py-3 font-medium">AI priority</th>
               <th className="hidden px-4 py-3 font-medium lg:table-cell">Submitted</th>
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">Loading…</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  Loading…
+                </td>
+              </tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">No requests here.</td></tr>
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  No requests here.
+                </td>
+              </tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id} className="border-b last:border-0 hover:bg-secondary/40">
                   <td className="px-4 py-3">
                     <button className="text-left" onClick={() => setOpenId(r.id)}>
                       <div className="font-medium hover:underline">{r.title}</div>
-                      <div className="text-xs text-muted-foreground">{CATEGORY_LABEL[r.category]}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {CATEGORY_LABEL[r.category]}
+                      </div>
                     </button>
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
@@ -144,11 +204,29 @@ function Dashboard() {
                     <div className="text-xs text-muted-foreground">{r.profiles?.email}</div>
                   </td>
                   <td className="hidden px-4 py-3 sm:table-cell">
-                    <Badge variant={r.urgency === "high" ? "urgent" : "muted"}>{URGENCY_LABEL[r.urgency]}</Badge>
+                    <Badge variant={r.urgency === "high" ? "urgent" : "muted"}>
+                      {URGENCY_LABEL[r.urgency]}
+                    </Badge>
                   </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3">
-                    <StatusSelect value={r.status} onChange={(status) => setStatus.mutate({ id: r.id, status })} />
+                    {triage.get(r.id) ? (
+                      <Badge variant={PRIORITY_VARIANT[triage.get(r.id)!.priority]}>
+                        {triage.get(r.id)!.needs_review
+                          ? "Check"
+                          : PRIORITY_LABEL[triage.get(r.id)!.priority]}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Not yet</span>
+                    )}
+                  </td>
+                  <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                    {formatDate(r.created_at)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusSelect
+                      value={r.status}
+                      onChange={(status) => setStatus.mutate({ id: r.id, status })}
+                    />
                   </td>
                 </tr>
               ))
@@ -167,15 +245,22 @@ function Dashboard() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <Badge variant={STATUS_VARIANT[open.status]}>{STATUS_LABEL[open.status]}</Badge>
                 <Badge variant="muted">{CATEGORY_LABEL[open.category]}</Badge>
-                <Badge variant={open.urgency === "high" ? "urgent" : "muted"}>{URGENCY_LABEL[open.urgency]} urgency</Badge>
+                <Badge variant={open.urgency === "high" ? "urgent" : "muted"}>
+                  {URGENCY_LABEL[open.urgency]} urgency
+                </Badge>
               </div>
               <p className="mt-4 text-sm text-muted-foreground">
-                From {open.profiles?.full_name || open.profiles?.email} · {formatDate(open.created_at)}
+                From {open.profiles?.full_name || open.profiles?.email} ·{" "}
+                {formatDate(open.created_at)}
               </p>
               <p className="mt-4 whitespace-pre-wrap text-sm">{open.description}</p>
               <div className="mt-6">
-                <StatusSelect value={open.status} onChange={(status) => setStatus.mutate({ id: open.id, status })} />
+                <StatusSelect
+                  value={open.status}
+                  onChange={(status) => setStatus.mutate({ id: open.id, status })}
+                />
               </div>
+              <TriagePanel requestId={open.id} triage={triage.get(open.id)} />
               <Notes requestId={open.id} />
             </>
           )}
@@ -185,7 +270,13 @@ function Dashboard() {
   );
 }
 
-function StatusSelect({ value, onChange }: { value: RequestStatus; onChange: (s: RequestStatus) => void }) {
+function StatusSelect({
+  value,
+  onChange,
+}: {
+  value: RequestStatus;
+  onChange: (s: RequestStatus) => void;
+}) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as RequestStatus)}>
       <SelectTrigger className="h-8 w-[140px]">
@@ -193,7 +284,9 @@ function StatusSelect({ value, onChange }: { value: RequestStatus; onChange: (s:
       </SelectTrigger>
       <SelectContent>
         {(Object.keys(STATUS_LABEL) as RequestStatus[]).map((s) => (
-          <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>
+          <SelectItem key={s} value={s}>
+            {STATUS_LABEL[s]}
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -222,7 +315,9 @@ function Notes({ requestId }: { requestId: string }) {
       if (!text) throw new Error("Write a note first");
       if (text.length > 5000) throw new Error("Note is too long");
       const { data: u } = await supabase.auth.getUser();
-      const { error } = await supabase.from("request_notes").insert({ request_id: requestId, body: text, author_id: u.user!.id });
+      const { error } = await supabase
+        .from("request_notes")
+        .insert({ request_id: requestId, body: text, author_id: u.user!.id });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -237,6 +332,7 @@ function Notes({ requestId }: { requestId: string }) {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onError: (e) => toast.error(e.message),
   });
 
   return (
@@ -251,14 +347,27 @@ function Notes({ requestId }: { requestId: string }) {
             <p className="whitespace-pre-wrap">{n.body}</p>
             <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
               <span>{new Date(n.created_at).toLocaleString()}</span>
-              <button aria-label="Delete note" className="opacity-0 transition group-hover:opacity-100" onClick={() => remove.mutate(n.id)}>
+              <button
+                aria-label="Delete note"
+                className="opacity-0 transition focus:opacity-100 group-hover:opacity-100"
+                onClick={() =>
+                  window.confirm("Delete this note for everyone?") && remove.mutate(n.id)
+                }
+              >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
         ))}
       </div>
-      <Textarea className="mt-3 bg-card" rows={3} value={body} maxLength={5000} onChange={(e) => setBody(e.target.value)} placeholder="Add a note for the team…" />
+      <Textarea
+        className="mt-3 bg-card"
+        rows={3}
+        value={body}
+        maxLength={5000}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Add a note for the team…"
+      />
       <Button size="sm" className="mt-2" onClick={() => add.mutate()} disabled={add.isPending}>
         Add note
       </Button>
