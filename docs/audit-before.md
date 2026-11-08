@@ -1,4 +1,4 @@
-# Audit of app
+# Audit of app (as exported by Lovable, commit 0a0a95c)
 
 High: 0  Medium: 4  Low: 3
 

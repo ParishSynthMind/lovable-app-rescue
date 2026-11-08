@@ -3,7 +3,7 @@
 // for the problems those exports usually ship with. No dependencies.
 //   node tools/audit/lovable-audit.mjs <app-folder> [--json] [--fail-on high|medium|none]
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, relative, extname } from "node:path";
+import { join, relative, extname, resolve, dirname } from "node:path";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", "coverage", ".vercel"]);
 const CODE_EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue", ".svelte", ".html"]);
@@ -157,7 +157,8 @@ export function checkMigrations(files) {
       if (!/\b(update|all)\b/.test(privs) || !/\b(authenticated|anon|public)\b/.test(roles)) continue;
       const ownUpdate = policies.find((p) => p.table === table && (p.cmd === "update" || p.cmd === "all") && /auth\.uid\(\)/.test(`${p.using}`) && !/has_role|is_admin|admin/i.test(`${p.using}`));
       const exposed = (columns.get(table) || []).filter((c) => SENSITIVE.test(c));
-      if (ownUpdate && exposed.length) {
+      const revokedLater = all.some((f) => new RegExp(`revoke\\s+(?:[\\w\\s,]*\\bupdate\\b|all)[\\w\\s,]*\\s+on\\s+(?:table\\s+)?(?:[\\w."]+\\s*,\\s*)*(?:public\\.)?"?${table}"?\\b[^;]*\\bfrom\\b[^;]*\\b(authenticated|public)\\b`, "i").test(f.sql));
+      if (ownUpdate && exposed.length && !revokedLater) {
         found.push({ severity: "medium", rule: "whole-row-update", file: rel, line: lineOf(sql, m.index),
           message: `Users can update every column of their own "${table}" row, including ${exposed.join(", ")}. Grant UPDATE on the editable columns only.` });
       }
@@ -192,13 +193,25 @@ export function checkMigrations(files) {
   return found;
 }
 
+// The app may live in a subfolder of the repo, so look for CI up to the repo root.
+function hasCi(root) {
+  let dir = resolve(root);
+  for (;;) {
+    if (existsSync(join(dir, ".github", "workflows"))) return true;
+    if (existsSync(join(dir, ".git")) || dirname(dir) === dir) return false;
+    dir = dirname(dir);
+  }
+}
+
 export function audit(root) {
   const findings = [];
   const files = walk(root).map((p) => ({ abs: p, rel: relative(root, p).split("\\").join("/") }));
+  const gitignore = existsSync(join(root, ".gitignore")) ? readFileSync(join(root, ".gitignore"), "utf8") : "";
+  const envIgnored = /^\.env\b/m.test(gitignore);
   const migrations = [];
   for (const f of files) {
     const ext = extname(f.rel);
-    if (/^\.env(\.|$)/.test(f.rel.split("/").pop()) && !/\.example$|\.sample$/.test(f.rel)) {
+    if (!envIgnored && /^\.env(\.|$)/.test(f.rel.split("/").pop()) && !/\.example$|\.sample$/.test(f.rel)) {
       findings.push({ severity: "medium", rule: "env-file-committed", file: f.rel, line: 1,
         message: "A .env file is in the repo. Keep real values out of git; commit .env.example instead." });
     }
@@ -207,6 +220,10 @@ export function audit(root) {
     if (!CODE_EXT.has(ext) || !isBrowserFile(f.rel)) continue;
     const text = readFileSync(f.abs, "utf8");
     findings.push(...checkBrowserSecrets(f.rel, text), ...checkBrowserCode(f.rel, text));
+  }
+  // Once supabase/migrations exists it is the source of truth; a leftover Drizzle export is history.
+  if (migrations.some((m) => m.rel.startsWith("supabase/"))) {
+    for (let i = migrations.length - 1; i >= 0; i--) if (migrations[i].rel.startsWith("drizzle/")) migrations.splice(i, 1);
   }
   migrations.sort((a, b) => a.rel.localeCompare(b.rel));
   findings.push(...checkMigrations(migrations.map((m) => ({ rel: m.rel, text: readFileSync(m.abs, "utf8") }))));
@@ -225,7 +242,7 @@ export function audit(root) {
   if (!files.some((f) => /\.(test|spec)\.[jt]sx?$/.test(f.rel) || /^supabase\/tests\//.test(f.rel))) {
     findings.push({ severity: "low", rule: "no-tests", file: ".", line: 0, message: "No automated tests found." });
   }
-  if (!existsSync(join(root, ".github", "workflows"))) {
+  if (!hasCi(root)) {
     findings.push({ severity: "low", rule: "no-ci", file: ".", line: 0, message: "No CI workflow, so nothing checks a change before it ships." });
   }
   return findings.sort((a, b) => RANK[b.severity] - RANK[a.severity] || a.file.localeCompare(b.file) || a.line - b.line);

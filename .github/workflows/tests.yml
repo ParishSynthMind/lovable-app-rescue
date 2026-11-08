@@ -1,0 +1,77 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  audit-tool:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tools/audit/test/
+      - name: Audit the rescued app (fails on any HIGH finding)
+        run: node tools/audit/lovable-audit.mjs app
+
+  app:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: http://127.0.0.1:54321
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder
+
+  edge-function:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app/supabase/functions
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno lint
+      - run: deno test
+      - run: deno check triage-request/index.ts
+
+  database:
+    # Local Supabase (Postgres, Auth, PostgREST) in Docker on the runner: pgTAP tests, then the
+    # same attacks over the real API as signed-in users. No secrets, no Claude call.
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: npm ci
+      - run: supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime,storage-api
+      - run: supabase test db
+      - name: API attack check (all must be BLOCKED)
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=')"
+          SUPABASE_URL="$API_URL" SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" node scripts/attack-check.mjs

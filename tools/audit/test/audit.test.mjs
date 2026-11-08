@@ -149,3 +149,28 @@ test("Lovable Cloud export: drizzle-only schema and .env not ignored are flagged
   mkdirSync(join(root, ".github/workflows"), { recursive: true });
   assert.deepEqual(rules(audit(root)), ["env-not-gitignored", "no-database-tests", "schema-not-in-supabase-migrations"]);
 });
+
+test("supabase/migrations wins over a leftover Drizzle export", () => {
+  const root = project({
+    "drizzle/migrations/0000.sql": "create table t (id int);",
+    "supabase/migrations/0001.sql": "create table t (id int); alter table t enable row level security;",
+    "supabase/tests/rls.test.sql": "select 1;",
+    ".gitignore": ".env\n",
+    "src/a.test.ts": "",
+  });
+  mkdirSync(join(root, ".git"));
+  mkdirSync(join(root, ".github/workflows"), { recursive: true });
+  assert.deepEqual(audit(root), []);
+});
+
+test("a later REVOKE UPDATE clears the whole-row finding; an ignored .env is not 'committed'", () => {
+  const sql1 = `create table public.profiles (id uuid primary key, email text);
+    grant select, update on public.profiles to authenticated;
+    alter table public.profiles enable row level security;
+    create policy "own" on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());`;
+  const sql2 = "revoke update on public.profiles from authenticated; grant update (full_name) on public.profiles to authenticated;";
+  assert.deepEqual(checkMigrations([{ rel: "1.sql", text: sql1 }, { rel: "2.sql", text: sql2 }]), []);
+  const root = project({ ".env": "X=1", ".gitignore": ".env\n", "src/a.test.ts": "" });
+  mkdirSync(join(root, ".github/workflows"), { recursive: true });
+  assert.deepEqual(audit(root), []);
+});

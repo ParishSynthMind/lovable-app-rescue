@@ -1,0 +1,23 @@
+signed out -> 401
+client (maria) -> 403
+staff -> 200, 3 requests triaged in 7.6s
+
+Checkout page shows an error  (client said: normal)
+  AI priority: urgent   model: claude-sonnet-5-5
+  why: Payments are failing on the live checkout and orders are being lost, which meets the urgent criteria despite the client rating it normal.
+  summary: Customers see a "Something went wrong" error when they press Pay at checkout, and the client has already lost two orders.
+  draft reply: Thanks for flagging this, and sorry about the lost orders. We're treating a broken checkout as a top priority and are looking into it now. If you can send us the time of the most recent failed attempt and any order or customer details you have, it will help us track down the cause faster.
+
+New photos for the About page  (client said: low)
+  AI priority: normal   model: claude-sonnet-5-5
+  why: This is a routine content change with no business impact today.
+  summary: The client wants the three team photos on the About page replaced with the new ones they emailed on Friday.
+  draft reply: Hi there, thanks for sending this over! We'll find the photos you emailed on Friday and get them swapped in on the About page. If anything looks off with the images, we'll let you know.
+
+Can we add a Spanish version?  (client said: normal)
+  AI priority: low   model: claude-sonnet-5-5
+  why: This is a general question about a possible future enhancement with no current fault or business impact.
+  summary: The client wants to know what adding a Spanish version of their website would involve, since about a third of their visitors are in Spain.
+  draft reply: Thanks for reaching out, and it's great to hear so many of your visitors are in Spain! Adding a Spanish version usually involves a few decisions, like how the content gets translated and how visitors switch between languages. We'd love to chat through your site and goals so we can walk you through the options.
+
+client reading request_triage afterwards -> 0 rows
