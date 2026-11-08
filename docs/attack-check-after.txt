@@ -1,0 +1,11 @@
+BLOCKED  Client changes the email staff see on the dashboard
+BLOCKED  Client backdates a request by a year
+BLOCKED  Signed-out visitor asks whether a user id is an admin
+BLOCKED  Signed-out visitor lists requests
+BLOCKED  Client reads another client's requests
+BLOCKED  Client reads the internal staff notes
+BLOCKED  Client makes herself admin
+BLOCKED  Client marks her own request done
+BLOCKED  Staff rewrite what the client wrote
+
+9 of 9 blocked
