@@ -1,0 +1,17 @@
+node_modules/
+.output/
+.wrangler/
+.nitro/
+.tanstack/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+supabase/.temp/
+app/supabase/.temp/
+app/supabase/.branches/
+PORTFOLIO-LISTING.md
+staging/
+*.log
+.DS_Store
