@@ -91,7 +91,7 @@ To use a hosted Supabase project instead: `supabase link --project-ref <ref>`, `
 ## Tests
 
 ```bash
-node --test tools/audit/test/                  # 17 audit-tool tests
+node --test tools/audit/test/*.test.mjs        # 17 audit-tool tests
 node tools/audit/lovable-audit.mjs app         # the audit itself (exit 1 on any HIGH)
 cd app
 npm run lint && npm run typecheck && npm test  # 8 Vitest tests

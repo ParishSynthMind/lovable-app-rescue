@@ -15,37 +15,43 @@ const good = {
   suggested_reply: "Thanks for flagging this, we are looking at it now.",
 };
 
-// deno-lint-ignore no-explicit-any
-function fake(replies: Array<unknown | Error>): any {
-  // deno-lint-ignore no-explicit-any
-  const calls: any[] = [];
+type CreateBody = {
+  model: string;
+  output_config: { format: { type: string } };
+};
+type Reply = {
+  stop_reason: string;
+  content: { type: string; text?: string }[];
+};
+
+// A stand-in for the Anthropic client: replays the given replies (an Error is thrown).
+function fake(replies: Array<unknown>) {
+  const calls: CreateBody[] = [];
+  const messages = {
+    create: (body: CreateBody): Promise<Reply> => {
+      calls.push(body);
+      const next = replies.shift();
+      if (next instanceof Error) return Promise.reject(next);
+      if (next && typeof next === "object" && "stop_reason" in next) {
+        return Promise.resolve(next as Reply);
+      }
+      const text = typeof next === "string" ? next : JSON.stringify(next);
+      return Promise.resolve({
+        stop_reason: "end_turn",
+        content: [{ type: "text", text }],
+      });
+    },
+  };
+  // The triage code only uses messages.create, so this cast is the only shortcut in the tests.
   return {
     calls,
-    messages: {
-      // deno-lint-ignore no-explicit-any
-      create: (body: any) => {
-        calls.push(body);
-        const next = replies.shift();
-        if (next instanceof Error) return Promise.reject(next);
-        // deno-lint-ignore no-explicit-any
-        if (
-          next && typeof next === "object" && "stop_reason" in (next as any)
-        ) return Promise.resolve(next);
-        return {
-          stop_reason: "end_turn",
-          content: [{
-            type: "text",
-            text: typeof next === "string" ? next : JSON.stringify(next),
-          }],
-        };
-      },
-    },
+    client: { messages } as unknown as Parameters<typeof triage>[0],
   };
 }
 
 Deno.test("good reply is returned, request uses Sonnet 5.5 with a JSON schema", async () => {
   const c = fake([good]);
-  const t = await triage(c, req);
+  const t = await triage(c.client, req);
   assertEquals(t, { ...good, needs_review: false });
   assertEquals(c.calls[0].model, MODEL);
   assertEquals(c.calls[0].output_config.format.type, "json_schema");
@@ -53,7 +59,7 @@ Deno.test("good reply is returned, request uses Sonnet 5.5 with a JSON schema", 
 
 Deno.test("bad JSON then good reply: retried once", async () => {
   const c = fake(["not json", good]);
-  assertEquals((await triage(c, req)).priority, "urgent");
+  assertEquals((await triage(c.client, req)).priority, "urgent");
   assertEquals(c.calls.length, 2);
 });
 
@@ -62,7 +68,7 @@ Deno.test("invalid priority twice: safe default, flagged for a person", async ()
     { ...good, priority: "critical" },
     { ...good, priority: "" },
   ]);
-  assertEquals(await triage(c, req), FALLBACK);
+  assertEquals(await triage(c.client, req), FALLBACK);
   assertEquals(FALLBACK.priority, "high");
   assert(FALLBACK.needs_review);
 });
@@ -72,12 +78,12 @@ Deno.test("refusal is not treated as an answer", async () => {
     { stop_reason: "refusal", content: [] },
     { stop_reason: "refusal", content: [] },
   ]);
-  assertEquals(await triage(c, req), FALLBACK);
+  assertEquals(await triage(c.client, req), FALLBACK);
 });
 
 Deno.test("network error retried, permanent auth error is not", async () => {
   const c1 = fake([new Error("socket hang up"), good]);
-  assertEquals((await triage(c1, req)).needs_review, false);
+  assertEquals((await triage(c1.client, req)).needs_review, false);
   const auth = new Anthropic.AuthenticationError(
     401,
     { type: "error" },
@@ -85,7 +91,7 @@ Deno.test("network error retried, permanent auth error is not", async () => {
     new Headers(),
   );
   const c2 = fake([auth, good]);
-  assertEquals(await triage(c2, req), FALLBACK);
+  assertEquals(await triage(c2.client, req), FALLBACK);
   assertEquals(c2.calls.length, 1);
 });
 
